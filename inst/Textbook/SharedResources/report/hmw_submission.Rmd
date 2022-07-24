@@ -1,0 +1,12 @@
+---
+title: "`r params$title`"
+date: "`r format(Sys.time(), '%d %B, %Y')`" 
+output: html_document
+params:
+  title: Homework
+  user: Unknown
+  grade: 0 
+---
+
+# User: `r params$user`
+# Grade: `r params$grade`
