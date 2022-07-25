@@ -32,35 +32,78 @@ library(learnr)
 gradethis::gradethis_setup()
 
 ##Setup Homework Grade Tracker
-homework_info <- reactiveValues(s_id = "Not Set ", hmw_grade = 0.0, hmw_scores = c(hmw1 = FALSE, hmw2 = FALSE, hmw3 = FALSE, hmw4 = FALSE, hmw5 = FALSE,hmw6 = FALSE))
+hmw_info <- reactiveValues(s_id = "Not Set ", 
+                                hmw_grade = 0.0, 
+                                #Eventually update this section, so that it can be used to generate the homework questions later on. Without generation,
+                                #this section could become out of date/sync with actual problems listed below.
+                                #Idea - Have each question append its information to hmw_info$submissions! This would remove the syncing issue.
+                                submissions = list(hmw1 = list(type="questionaire", 
+                                                               q_text="(True or False), filter() modifies the dataframe passed to it.",
+                                                               choices=c("True", "False"), 
+                                                               is_correct = FALSE, 
+                                                               submitted_answer = ""),
+                                                   hmw2 = list(type="questionaire", 
+                                                               q_text="How many rows will this code segment return? $\\texttt{filter(mpg, displ > 2)}$",
+                                                               choices=c("191", "212", "11", "0"), 
+                                                               is_correct = FALSE, 
+                                                               submitted_answer = ""),
+                                                   hmw3 = list(type="code", 
+                                                               q_text="Fill in the blanks with the necessary code so that only the audi cars with a city mpg of 20 or more are listed.", 
+                                                               choices="filter(mpg, manufacturer ____ \"audi\" ____ cty ____ 20)",
+                                                               is_correct = FALSE, 
+                                                               submitted_answer = ""),
+                                                   hmw4 = list(type="code", 
+                                                               q_text="Debugging Exercise - Fix the following piece of code so that only compact cars are listed in the results.", 
+                                                               choices="filter(mpg, CLASS == \"COMPACT\")", 
+                                                               is_correct = FALSE, 
+                                                               submitted_answer = ""),
+                                                   hmw5 = list(type="code", 
+                                                               q_text="Write the necessary code to list all of the cars with an average highway mpg of 20 or more.", 
+                                                               choices=NULL, 
+                                                               is_correct = FALSE, 
+                                                               submitted_answer = ""),
+                                                   hmw6 = list(type="code", 
+                                                               q_text="Write the necessary code to list out all of the minivans and subcompacts produced in 1999.", 
+                                                               choices=NULL, 
+                                                               is_correct = FALSE, 
+                                                               submitted_answer = "")))
 
 new_recorder <- function(tutorial_id, tutorial_version, user_id, event, data) {
    #cat("Original: \n", tutorial_id, " (", tutorial_version, "): ", user_id, ", ", event, "\n", sep = "")
-  homework_info$s_id <<- user_id #Set the student's name to match their user id (should be cu id)
+  
+  hmw_info$s_id <<- user_id #Set the student's name to match their user id (should be cu id)
   if(!is.null(data$label)){
     if(grepl("hmw", data$label, fixed =TRUE)){ ##Only verify homework problems  
       if(event == "exercise_result"){#ensure we are checking a coding problem after it's been evaluated
           #Verify Coding Problem
           if(!is.null(data$feedback)){#If feedback is present, then this is a submitted problem
             if(data$feedback$correct){
-              #Only update for a correct answer once. Ignore repeated answers.
-              if(!homework_info$hmw_scores[strsplit(data$label, split="_")[[1]][2]]){
-                homework_info$hmw_scores[strsplit(data$label, split="_")[[1]][2]] <<- TRUE
-                homework_info$hmw_grade <<- homework_info$hmw_grade + 1
-                print(homework_info$hmw_grade)
+              #Only update for a correct answer once. Ignore repeated correct answers.
+              if(!hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$is_correct){
+                hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$is_correct <<- TRUE
+                hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$submitted_answer <<- data$code
+                hmw_info$hmw_grade <<- hmw_info$hmw_grade + 1
               }
+            }
+            #Check if they haven't answered the question correctly. If not, we want to store their most recent incorrect attempt
+            else if(!hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$is_correct){
+              hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$submitted_answer <<- data$code
             }
           }
         }
       else if(event == "question_submission"){
         #Check if they answered the interactive question correctly
         if(data$correct){
-          #Only update for a correct answer once. Ignore repeated answers.
-          if(!homework_info$hmw_scores[strsplit(data$label, split="_")[[1]][2]]){
-            homework_info$hmw_scores[strsplit(data$label, split="_")[[1]][2]] <<- TRUE
-            homework_info$hmw_grade <<- homework_info$hmw_grade + 1
-            print(homework_info$hmw_grade)
+          #Only update for a correct answer once. Ignore repeated correct answers.
+          if(!hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$is_correct){
+            hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$is_correct <<- TRUE
+            hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$submitted_answer <<- data$answer
+            hmw_info$hmw_grade <<- hmw_info$hmw_grade + 1
           }
+        }
+        #Check if they haven't answered the question correctly. If not, we want to store their most recent incorrect attempt
+        else if(!hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$is_correct){
+          hmw_info$submissions[[strsplit(data$label, split="_")[[1]][2]]]$submitted_answer <<- data$answer
         }
       } 
     }
@@ -392,107 +435,15 @@ grade_result(
 ```
 
 ## Filtering on Multiple Conditions
-In the previous section, we learned how to apply filter to a dataset using a single condition but often we will have many conditions to apply. When we need to apply multiple conditions, we turn to the boolean operators! There are three primary boolean operators to work with, which are AND (&), OR (|), and NOT (!). There is also a fourth boolean operator called XOR (exclusive-or) but it is beyond the scope of our course. If you are interested in learning more about XOR check out this [tutorial]().  
+In the previous section, we learned how to apply filter to a dataset using a single condition but often we will have many conditions to apply. When we need to apply multiple conditions, we turn to the boolean operators! There are three primary boolean operators we will work with, which are AND (&), OR (|), and NOT (!). 
 
-### The AND Operator &   
-The & operator will evaluate to true if, and only if, both logical statements are TRUE. This means, in the context of filter, both expressions must evaluate to TRUE for the row to be included. Otherwise, the & operator will evaluate to FALSE and the row will be excluded from the results.  
+ *Incomplete, Sections to add:*  
+   - Math explanation of each operator, i.e. how they evaluate to true/false
+   - Common language explanation, e.g. "I want to buy a new BMW that is either a hybrid or an electric" - brand == "BMW" & (type == "hyrbrid" | type == "electric"). Basically look at how we can convert a conversation of needs/requirements into a conditional statement. 
+   - Common helper methods - is.na(), %in%
+   
+  *Fix Broken Widgets*
 
- | <!--   -->    | <!-- --> |
- | ------------- | ----- |
- | TRUE & TRUE   | TRUE  |
- | TRUE & FALSE  | FALSE |
- | FALSE & TRUE  | FALSE |
- | FALSE & FALSE | FALSE |  
-
-### The OR Operator |  
-The | operator will evaluate to true if either logical statement evaluates to true. This means, in the context of filter, only one expression needs to evaluate to TRUE for the row to be included. If both expressions evaluate to FALSE, then the row will be excluded from the results.  
-
- | <!--        --> | <!--  --> |
- | --------------- | ------|
- | TRUE  \| TRUE   | TRUE  |
- | TRUE  \| FALSE  | TRUE  |
- | FALSE \| TRUE   | TRUE  |
- | FALSE \| FALSE  | FALSE |
-
-
- 
-### The NOT Operator !  
-The ! operator flips the boolean value of a logical statement. TRUE becomes FALSE and FALSE becomes true. We generally turn to the not operator to simplify our logical expression. Within the context of filter(), we often pair ! NOT with the is.na() operation. This provides an easy filter expression to remove any rows where a value is missing/NA.
-
-```{r, eval=TRUE}
-simple <- tibble(var = c(0, NA, 1, NA))
-simple
-```
-```{r, eval=TRUE}
-filter(simple, !is.na(var)) #returns all of the rows with values
-```
-
-<!-- This example is broken! 
-### Simple Dataset 
-```{r, echo=FALSE}
-fluidRow(
-    column(1),
-    column(4,
-      fluidRow(
-        column(1,p()),
-        column(2,p(style="font-size:1.5em;font-weight:bold","var")),
-        column(6, style="font-size:1.5em;", selectInput("compareOp_Left", NULL, c("==", "!=", "<", "<=", ">", ">="))),
-        column(2, style="padding-left:0px", span(style="font-size:1.5em;font-weight:bold", textOutput("leftConditionVal")))),
-        div(id="divSlider_Left", sliderInput("slider_Left", NULL, value=5, min=0, max=10, step=1)) 
-      ),
-    column(2, 
-           fluidRow(
-             column(2, p()),
-             column(8, div(style="font-size:1.5em;", selectInput("boolOp", NULL, c("&", "|")))),
-             column(2, p()))),
-    column(4,
-      fluidRow(
-        column(1,p()),
-        column(2,p(style="font-size:1.5em;font-weight:bold","var")),
-        column(6, style="font-size:1.5em;", selectInput("compareOp_Right", NULL, c("==", "!=", "<", "<=", ">", ">="))),
-        column(2, style="padding-left:0px", span(style="font-size:1.5em;font-weight:bold", textOutput("rightConditionVal")))),
-        div(id="divSlider_Right", sliderInput("slider_Right", NULL, value=5, min=0, max=10, step=1)) 
-      ),
-    column(1))
-  htmlOutput("filterTwoExpression_S") 
-  htmlOutput("filterTwoTable_S")
-```
-
-```{r, context="server"}
-output$leftConditionVal <- renderText({ input$slider_Left })
-output$rightConditionVal <- renderText({ input$slider_Right })
-# Add CSS Classes to modify the slider so the bar is colored correctly. By default, the number slider fills in on the left slide of 
-# the slider's marker, but that doesn't correctly denote all conditions. For example, > should fill in from the right side!
-# Current Classes: 
-# noSlider <- removes the blue bar completely (==)
-# fullSlider<- completely fills in the blue bar (!=)
-# includeSlider <- modifies the marker to denote a value is included (==, <=, >=)
-# reverseSlider <- modifies the blue bar to fill in from the right (<, <=)
-observeEvent(input$compareOp_Left, {
- toggleClass("divSlider_Left", "fullSlider", condition = input$compareOp_Left == "!=")
- toggleClass("divSlider_Left", "noSlider", condition = input$compareOp_Left == "==")
- toggleClass("divSlider_Left", "includeSlider", condition = (input$compareOp_Left == "==" || input$compareOp_Left == "<=" || input$compareOp_Left == ">="))
- toggleClass("divSlider_Left", "reverseSlider", condition = (input$compareOp_Left == ">" || input$compareOp_Left == ">="))
-})
-observeEvent(input$compareOp_Right, {
- toggleClass("divSlider_Right", "fullSlider", condition = input$compareOp_Right == "!=")
- toggleClass("divSlider_Right", "noSlider", condition = input$compareOp_Right == "==")
- toggleClass("divSlider_Right", "includeSlider", condition = (input$compareOp_Right == "==" || input$compareOp_Right == "<=" || input$compareOp_Right == ">="))
- toggleClass("divSlider_Right", "reverseSlider", condition = (input$compareOp_Right == ">" || input$compareOp_Right == ">="))
-})
- 
-expressionBool_S <- reactive(paste("simple <- tibble(var = 0:10)\nfilter(simple, var ",input$compareOp_Left," ",input$slider_Left," ", input$boolOp," var ",input$compareOp_Right," ",input$slider_Right,")", sep=""))
-output$filterTwoExpression_S <- renderUI(HTML(paste("<pre><code>",expressionBool_S(),"</code></pre>", sep="")))
-observe(print(expressionBool_S()))
-observe(print(eval(expressionBool_S())))
-output$filterTwoTable_S <- renderUI(
-    HTML(paste("<table class=\"table\"><tr><th>Included Data</th><th style=\"color:red\">Excluded Data</th></tr><tr><td>",
-               paste(as.list(eval(parse(text=expressionBool_S()))$var), collapse=", "),
-               "</td><td style=\"color:red; font-weight:bold\" >",
-              paste(simple$var[!(simple$var %in% as.list(eval(parse(text=expressionBool_S()))$var))], collapse=", "),
-               "</td></tr></table>", sep="")))
-```
--->
 ### Practice Problems
 
 #### Practice Problem 6
@@ -660,12 +611,8 @@ grade_result(
 <!-- Convert to interactive element -->
 ```{r, echo=FALSE}
 fluidRow(
-      column(6, align="center", textOutput("user")),
+      column(6, align="center", downloadButton("hmw_submission", "Download Homework Submission")),
       column(6, align="center", textOutput("grade")))
-fluidRow(
-  column(3),
-  column(6, align="center", downloadButton("hmw_submission", "Download Homework Submission")),
-  column(3))
 
 ```
 
@@ -674,29 +621,30 @@ fluidRow(
 
 ```{r, context="server"}
 
-  s_id <- reactive({homework_info$s_id})
-  grade <- reactive({homework_info$hmw_grade})
-  
-  
-  output$user <- renderText({ 
-      paste("Student ID: ", s_id())
-    })
+  s_id <- reactive({hmw_info$s_id})
+  grade <- reactive({hmw_info$hmw_grade})
+  homework <- reactive({hmw_info$submissions})
   
   output$grade <- renderText({ 
-      paste("Grade: ", format(round((grade() / length(homework_info$hmw_scores)) * 100, 2), nsmall = 2), "%")
+      paste("Grade: ", format(round((grade() / length(homework())) * 100, 2), nsmall = 2), "%")
     })
+  
+  
   
   output$hmw_submission <- downloadHandler(
   filename = function() {
     paste0("Filter_Homework_", Sys.Date(), ".html")
   },
   content = function(file) {
+    print("Homework Submission: ")
+    print(homework())
     rmarkdown::render("../SharedResources/report/hmw_submission.Rmd",
                       output_file = file, 
                       params = list(
                         title = "Filter Homework", 
                         user = s_id(),
-                        grade = format(round((grade() / length(homework_info$hmw_scores)) * 100, 2), nsmall = 2)
+                        grade = format(round((grade() / length(homework())) * 100, 2), nsmall = 2),
+                        submissions = homework()
                       ),
                       envir = new.env(),
                       intermediates_dir = tempdir())
